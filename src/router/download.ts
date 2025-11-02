@@ -652,6 +652,11 @@ export async function getRule(): Promise<BaseRuleClass> {
       ruleClass = penana();
       break;
     }
+    case "www.asianfanfics.com": {
+      const { asianfanfics } = await import("../rules/onePage/original/asianfanfics");
+      ruleClass = asianfanfics();
+      break;
+    }
     case "www.lzdzw.com": {
       const { lzdzw } = await import("../rules/special/reprint/lzdzw");
       ruleClass = lzdzw;

@@ -74,7 +74,8 @@ export default {
     allowedHosts: "all",
     hot: true,
     liveReload: true,
-    magicHtml: false,
+    // magicHtml: false, 
+    // webpack-dev-server（v4+）doesn't support magicHtml anymore
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers":
