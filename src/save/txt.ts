@@ -30,6 +30,12 @@ export class TXT extends Options {
 
     const sections: string[] = [];
     for (const chapterTemp of chapters) {
+      // 跳过空章节
+      if (!chapterTemp.contentText || chapterTemp.contentText.trim() === "") {
+        log.debug(`[save-txt]跳过空章节：${chapterTemp.chapterName}`);
+        continue;
+      }
+      
       const chapterName = this.getchapterName(chapterTemp);
       if (
         chapterTemp.sectionName &&

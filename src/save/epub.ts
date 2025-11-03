@@ -351,6 +351,12 @@ export class EPUB extends Options {
 
       if (self.book.introduction) {
         const introduction = self.contentOpf.createElement("dc:description");
+        // 使用 xml:space="preserve" 保留换行与空白，并用 textContent 放入纯文本
+        introduction.setAttributeNS(
+          "http://www.w3.org/XML/1998/namespace",
+          "xml:space",
+          "preserve"
+        );
         introduction.textContent = self.book.introduction;
         self.metadata.appendChild(introduction);
       }
@@ -556,7 +562,13 @@ export class EPUB extends Options {
             new XMLSerializer()
               .serializeToString(self.contentOpf)
               .replaceAll('xmlns=""', "")
-              .replaceAll(/[\u{0000}-\u{001f}]/gu, "")
+              .replaceAll(/[\u{0000}-\u{001f}]/gu, (match) => {
+                // 保留换行符(0x0A)和回车符(0x0D)，其他控制字符删除
+                if (match === '\n' || match === '\r') {
+                  return match;
+                }
+                return '';
+              })
               .replaceAll(/[\u{007f}-\u{009f}]/gu, ""),
           ],
           { type: "application/oebps-package+xml" }
@@ -789,6 +801,14 @@ export class EPUB extends Options {
   }
 
   public async addChapter(chapter: Chapter, suffix = "") {
+    // 跳过空章节（例如没有内容的 foreword）
+    if (!chapter.contentHTML || 
+        (chapter.contentHTML.innerText.trim() === "" && 
+         (!chapter.contentImages || chapter.contentImages.length === 0))) {
+      log.debug(`[save-epub]跳过空章节：${chapter.chapterName}`);
+      return;
+    }
+    
     const chapterName = this.getchapterName(chapter);
     const chapterNumberToSave = this.getChapterNumberToSave(
       chapter,

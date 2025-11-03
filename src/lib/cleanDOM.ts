@@ -1187,10 +1187,16 @@ export function htmlTrim(dom: HTMLElement) {
 }
 
 function isBlankParagraph(node: Element) {
-  return (
-    node instanceof HTMLParagraphElement &&
-    node.innerText.trim() === "" &&
-    Array.from(node.childNodes).every((n) => n instanceof Text)
+  if (!(node instanceof HTMLParagraphElement)) {
+    return false;
+  }
+  const text = node.innerText.trim();
+  if (text !== "") {
+    return false;
+  }
+  // 空段落：纯文本或只包含 <br> 标签
+  return Array.from(node.childNodes).every(
+    (n) => n instanceof Text || n instanceof HTMLBRElement
   );
 }
 
@@ -1275,23 +1281,47 @@ function convertBlankParagraphElement(dom: HTMLElement) {
   const nodes = Array.from(dom.children);
   let count = 0;
   let buffer: Element[] = [];
+  let hasSeenContent = false; // 标记是否已遇到非空内容
+  
   for (const node of nodes) {
     if (isBlankParagraph(node)) {
       count++;
       buffer.push(node);
-    } else if (count !== 0) {
-      const p = document.createElement("p");
-      while (count > 0) {
-        count--;
-        const br = document.createElement("br");
-        p.appendChild(br);
-      }
-      buffer[0].replaceWith(p);
-      buffer.forEach((n) => n.remove());
+    } else {
+      hasSeenContent = true; // 遇到第一个非空元素
+      
+      if (count !== 0) {
+        // 多个空段落：只保留一个
+        if (count >= 2) {
+          const p = document.createElement("p");
+          p.className = "blank";
+          const br = document.createElement("br");
+          p.appendChild(br);
+          buffer[0].replaceWith(p);
+          buffer.slice(1).forEach((n) => n.remove());
+        } else {
+          // 单个空段落：规范化为 <p><br /></p> 格式
+          const p = document.createElement("p");
+          p.className = "blank";
+          const br = document.createElement("br");
+          p.appendChild(br);
+          buffer[0].replaceWith(p);
+        }
 
-      count = 0;
-      buffer = [];
+        count = 0;
+        buffer = [];
+      }
     }
+  }
+  
+  // 处理结尾的空段落：全部删除（因为是文档末尾）
+  if (count !== 0 && hasSeenContent) {
+    buffer.forEach((n) => n.remove());
+  }
+  
+  // 如果从头到尾都是空段落（没有遇到过内容），全部删除
+  if (!hasSeenContent && buffer.length > 0) {
+    buffer.forEach((n) => n.remove());
   }
 }
 

@@ -23,11 +23,19 @@ div {
 }
 
 p {
-  text-indent: 2em;
+  text-indent: 0;
   display: block;
   line-height: 1.3em;
-  margin-top: 0.4em;
-  margin-bottom: 0.4em;
+  margin-top: 0.2em;
+  margin-bottom: 0.2em;
+}
+
+/* Narrower spacing for intentionally blank paragraphs */
+p.blank {
+  /* Much tighter gap for visual blank lines */
+  margin-top: 0.05em;
+  margin-bottom: 0.05em;
+  line-height: 0.6em;
 }
 
 img {
