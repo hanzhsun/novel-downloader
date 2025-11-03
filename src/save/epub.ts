@@ -55,19 +55,14 @@ const content_opf = `<?xml version="1.0" encoding="utf-8"?>
     <item id="sgc-toc.css" href="sgc-toc.css" media-type="text/css"/>
     <item id="style.css" href="style.css" media-type="text/css"/>
     <item id="cover.xhtml" href="cover.xhtml" media-type="application/xhtml+xml" properties="svg"/>
-    <item id="info.xhtml" href="info.xhtml" media-type="application/xhtml+xml"/>
     <item id="message.xhtml" href="message.xhtml" media-type="application/xhtml+xml"/>
-    <item id="TOC.xhtml" href="TOC.xhtml" media-type="application/xhtml+xml"/>
   </manifest>
   <spine toc="ncx">
     <itemref idref="cover.xhtml"/>
-    <itemref idref="info.xhtml"/>
     <itemref idref="message.xhtml"/>
-    <itemref idref="TOC.xhtml"/>
   </spine>
   <guide>
     <reference type="cover" title="Cover" href="cover.xhtml"/>
-    <reference type="toc" title="Table of Contents" href="TOC.xhtml"/>
   </guide>
 </package>`;
 
@@ -117,7 +112,6 @@ const nav_xhtml = `<?xml version="1.0" encoding="utf-8"?>
   <nav epub:type="landmarks" id="landmarks" hidden=""><h2>Guide</h2>
     <ol>
       <li><a epub:type="cover" href="cover.xhtml">Cover</a></li>
-      <li><a epub:type="toc" href="TOC.xhtml">Table of Contents</a></li>
     </ol>
   </nav>
 </body>
@@ -139,25 +133,6 @@ const getCoverXhtml = (
 </body>
 </html>`;
 
-const getInfoXhtml = (
-  title: string,
-  author: string
-) => `<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
-<head>
-  <title>信息页</title>
-  <link href="style.css" type="text/css" rel="stylesheet"/>
-</head>
-
-<body>
-  <div class="main">
-    <h1>${title}</h1>
-
-    ${author ? `<h2>作者：${author}</h2>` : ""}
-  </div>
-</body>
-</html>`;
 
 const getMessageXhtml = (book: Book) => `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
@@ -174,7 +149,6 @@ const getMessageXhtml = (book: Book) => `<?xml version="1.0" encoding="utf-8"?>
     <div>题名：${book.bookname}</div>
     <div>作者：${book.author}</div>
     <div>原始地址：<a href="${book.bookUrl}">${book.bookUrl}</a></div>
-    <div>本文件由<a href="https://github.com/404-novel-project/novel-downloader">小说下载器</a>生成。</div>
     ${
       book.introductionHTML
         ? `<hr/><span>简介：</span>${book.introductionHTML.outerHTML}`
@@ -349,6 +323,11 @@ export class EPUB extends Options {
       language.textContent = self.book.additionalMetadate.language ?? "zh";
       self.metadata.appendChild(language);
 
+  // Publisher info
+  const publisher = self.contentOpf.createElement("dc:publisher");
+  publisher.textContent = "小说下载器";
+  self.metadata.appendChild(publisher);
+
       if (self.book.introduction) {
         const introduction = self.contentOpf.createElement("dc:description");
         // 使用 xml:space="preserve" 保留换行与空白，并用 textContent 放入纯文本
@@ -389,19 +368,7 @@ export class EPUB extends Options {
         }
       }
 
-      await self.epubZip.file(
-        "OEBPS/info.xhtml",
-        new Blob(
-          [
-            getInfoXhtml(self.book.bookname, self.book.author)
-              .replaceAll(/[\u{0000}-\u{001f}]/gu, "")
-              .replaceAll(/[\u{007f}-\u{009f}]/gu, ""),
-          ],
-          {
-            type: "application/xhtml+xml",
-          }
-        )
-      );
+      // info.xhtml 取消生成
 
       await self.epubZip.file(
         "OEBPS/message.xhtml",
@@ -433,7 +400,7 @@ export class EPUB extends Options {
       log.debug("[save-epub]对 chapters 排序");
       self.book.chapters.sort(self.chapterSort);
 
-      const sectionsListObj = getSectionsObj(self.book.chapters, self.chapterSort);
+  const sectionsListObj = getSectionsObj(self.book.chapters, self.chapterSort);
 
       let i = 0;
       let sectionNumberG = null;
@@ -444,9 +411,15 @@ export class EPUB extends Options {
       let sectionNavOl;
       for (const sectionObj of sectionsListObj) {
         const { sectionName, sectionNumber, chpaters } = sectionObj;
+        // 仅保留已生成章节文件的条目（跳过空章节）
+        const validChapters = chpaters.filter(c => !!c.chapterHtmlFileName);
         if (sectionNumber !== sectionNumberG) {
+          // 若该分卷内没有有效章节，则跳过整个分卷
+          if (!validChapters.length) {
+            continue;
+          }
           const sectionNumberToSave = self.getChapterNumberToSave(
-            chpaters[0],
+            validChapters[0],
             self.book.chapters
           );
           const sectionHtmlFileName = `No${sectionNumberToSave}Section.xhtml`;
@@ -492,7 +465,7 @@ export class EPUB extends Options {
             sectionTOCDiv = div;
           }
         }
-        for (const chpater of chpaters) {
+        for (const chpater of validChapters) {
           const chapterHtmlFileName = chpater.chapterHtmlFileName;
           if (sectionName) {
             // spine
@@ -603,19 +576,7 @@ export class EPUB extends Options {
           }
         )
       );
-      // TOC.xhtml
-      await self.epubZip.file(
-        "OEBPS/TOC.xhtml",
-        new Blob(
-          [
-            new XMLSerializer()
-              .serializeToString(self.toc)
-              .replaceAll(/[\u{0000}-\u{001f}]/gu, "")
-              .replaceAll(/[\u{007f}-\u{009f}]/gu, ""),
-          ],
-          { type: "application/xhtml+xml" }
-        )
-      );
+      // TOC.xhtml 取消生成
 
       function appendManifest(htmlFileName: string) {
         const item = self.contentOpf.createElement("item");
@@ -627,7 +588,8 @@ export class EPUB extends Options {
         }
       }
 
-      function appendSpine(htmlFileName: string) {
+      function appendSpine(htmlFileName: string | undefined) {
+        if (!htmlFileName) return;
         const itemref = self.contentOpf.createElement("itemref");
         itemref.setAttribute("idref", htmlFileName);
         self.spine.appendChild(itemref);
