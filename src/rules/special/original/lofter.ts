@@ -177,7 +177,16 @@ export class Lofter extends BaseRuleClass {
       }
       if (content) {
         rm(".otherinfo", true, content);
+        
+        // 预处理：检测并保留段落间的空行
+        // Lofter 的 HTML 中，空行表现为 <p> 之间有多个连续的换行符
+        const innerHTML = content.innerHTML;
+        // 将多个连续的换行符（通常表示空行）转换为 <p><br></p>
+        const processedHTML = innerHTML.replace(/(<\/p>)\s*\n\s*\n\s*(<p)/g, '$1\n<p><br></p>\n$2');
+        content.innerHTML = processedHTML;
+        
         const { dom, text, images } = await cleanDOM(content, "TM");
+        
         return {
           chapterName,
           contentRaw: content,
@@ -201,7 +210,13 @@ export class Lofter extends BaseRuleClass {
 
       const content = doc.querySelector("#m-cnt .long-text") as HTMLElement;
       if (content) {
+        // 预处理：检测并保留段落间的空行
+        const innerHTML = content.innerHTML;
+        const processedHTML = innerHTML.replace(/(<\/p>)\s*\n\s*\n\s*(<p)/g, '$1\n<p><br></p>\n$2');
+        content.innerHTML = processedHTML;
+        
         const { dom, text, images } = await cleanDOM(content, "TM");
+        
         return {
           chapterName,
           contentRaw: content,
